@@ -86,12 +86,10 @@ def bootstrap(ctx, dlproject=None, config=None, update=False, options=None, conf
     )
     ignore_webtopdf = () if webtopdf_supported else ('ConvertWebToPDF',)
 
-    # office-to-pdf-sdk ships for the same platforms as WebToPDF. Keep the
-    # ConvertWordToPDF sample out of the staging tree elsewhere so the build
-    # phase never tries to compile it where no SDK binary exists.
-    officetopdf_supported = build_64_bit and profset.os in (
-        'windows', 'winARM', 'i80386linux', 'armv8linux', 'armv8mac',
-    )
+    # office-to-pdf-sdk currently publishes only a Windows x86_64 nightly
+    # binary, so keep the ConvertWordToPDF sample out of the staging tree on
+    # every other platform. Widen this as the SDK ships more platforms.
+    officetopdf_supported = build_64_bit and profset.os == 'windows'
     ignore_officetopdf = () if officetopdf_supported else ('ConvertWordToPDF',)
 
     spat = shutil.ignore_patterns(

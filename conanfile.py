@@ -36,16 +36,11 @@ class Pdfl18installerConan(ConanFile):
                (os_ == "Macos"   and arch == "armv8")
 
     def _officetopdf_supported(self):
-        # office-to-pdf-sdk publishes for the same platforms as WebToPDF:
-        # 64-bit Windows (x64 + ARM64), 64-bit Linux (x86_64 + ARM), and
-        # macOS ARM.  Gating the dependency (and the ConvertWordToPDF sample
-        # that uses it) keeps bootstrap from failing with "no compatible
-        # configuration" where no binary exists.
-        os_ = str(self.settings.os)
-        arch = str(self.settings.arch)
-        return (os_ == "Windows" and arch in ("x86_64", "armv8")) or \
-               (os_ == "Linux"   and arch in ("x86_64", "armv8")) or \
-               (os_ == "Macos"   and arch == "armv8")
+        # office-to-pdf-sdk currently publishes only a Windows x86_64 nightly
+        # binary, so gate the dependency (and the ConvertWordToPDF sample that
+        # uses it) to that platform. Widen this as the SDK ships more platforms.
+        return str(self.settings.os) == "Windows" and \
+               str(self.settings.arch) == "x86_64"
 
     def _ocr_supported(self):
         # Mirrors ocr_unsupported_platforms in the APDFL tree: the
