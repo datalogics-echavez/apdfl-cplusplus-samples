@@ -140,6 +140,15 @@ ifneq ($(findstring mac,$(OS)), )
     BUILD_ONLY_SAMPLES += Printing/PDFPrintGUI
 endif
 
+# Office-to-PDF SDK sample: built to validate that the SDK links, but not run
+# unattended here. The sample self-initializes the SDK (which loads the Adobe
+# PDF Library on demand), so an unattended run would need the SDK's runtime on
+# the loader path the way a full APDFL install provides it; that is validated
+# separately. office-to-pdf-sdk ships for the same platforms as WebToPDF.
+ifeq ($(findstring mac-x86-64,$(OS))$(findstring aix,$(OS))$(findstring solaris,$(OS)),)
+    BUILD_ONLY_SAMPLES += DocumentConversion/ConvertWordToPDF
+endif
+
 build_pdfl_samples:
 	$(info OS=$(OS))
 	$(info BUILD_64_BIT=$(BUILD_64_BIT))

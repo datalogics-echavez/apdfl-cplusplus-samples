@@ -22,5 +22,8 @@ Converts a PDF document and a Invoice XML document to a ZUGFeRD compliant PDF do
 ## ***ConvertWebToPDF***
 Uses the WebToPDF plugin to render a web page (by default https://www.datalogics.com) into a PDF document.
 
+## ***ConvertWordToPDF***
+Uses the Datalogics Office-to-PDF SDK to convert a Microsoft Word (.docx) document into a PDF, demonstrating both the file and in-memory forms of the SDK's plain-C interface.
+
 ## ***XPSToPDF***
 Opens a XPS document and converts it to a PDF document.

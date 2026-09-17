@@ -86,9 +86,17 @@ def bootstrap(ctx, dlproject=None, config=None, update=False, options=None, conf
     )
     ignore_webtopdf = () if webtopdf_supported else ('ConvertWebToPDF',)
 
+    # office-to-pdf-sdk ships for the same platforms as WebToPDF. Keep the
+    # ConvertWordToPDF sample out of the staging tree elsewhere so the build
+    # phase never tries to compile it where no SDK binary exists.
+    officetopdf_supported = build_64_bit and profset.os in (
+        'windows', 'winARM', 'i80386linux', 'armv8linux', 'armv8mac',
+    )
+    ignore_officetopdf = () if officetopdf_supported else ('ConvertWordToPDF',)
+
     spat = shutil.ignore_patterns(
         'build', '.*', 'conan*', 'tasks', 'utils', 'python-env-*',
-        igpat, igwinARM, igforms, *ignore_webtopdf)
+        igpat, igwinARM, igforms, *ignore_webtopdf, *ignore_officetopdf)
     sdir = os.path.join('build', 'CPlusPlus', 'Sample_Source')
     noerr_mkdir(sdir)
     shutil.copytree('.', sdir, ignore=spat, dirs_exist_ok=True)
@@ -112,6 +120,7 @@ _WIN_SKIP_RUN = {
     'Display/PDFViewer',                    # MFC GUI viewer
     'DocumentConversion/ConvertToFactur-X',  # requires input PDF arg
     'DocumentConversion/ConvertToZUGFeRD',   # requires input PDF + XML args
+    'DocumentConversion/ConvertWordToPDF',   # self-inits the SDK; run needs Binaries on the DLL path
     'Printing/PDFPrintDefault',             # drives the OS default printer
     'Printing/PDFPrintGUI',                 # opens the OS print dialog
     'Text/InsertHeadFoot',                  # reads a password from stdin
