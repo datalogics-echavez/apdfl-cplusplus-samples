@@ -3,11 +3,13 @@ OTHER_OBJS = $(SAMPNAME).o
 
 include ../../dlutils/common.mak
 
-# The Office-to-PDF SDK is a static library, so this sample resolves the SDK's
-# curator (Modern C++ interface), zlib and expat symbols at its own final link.
-# It is compiled with O2PDF_STATIC so office_to_pdf/converter_c.h declares plain
-# (non-exported) functions rather than shared-library imports.
-CXXFLAGS += -DO2PDF_STATIC
-EXTRA_LIBS += -loffice_to_pdf_sdk -ldatalogics_interface_api -lexpat -lz
+# The Office-to-PDF SDK ships as shared libraries; this sample needs only its
+# C library, so add office_to_pdf_c to the link. It loads the Modern C++
+# library, the datalogics_interface interface and APDFL itself at run time.
+# (Like every sample here, this one also inherits the common APDFL objects and
+# link set from dlutils/common.mak; ConvertWordToPDF does not use them -- it
+# drives the SDK entirely through the C ABI -- but they are left in place for
+# consistency with the shared build rules.)
+EXTRA_LIBS += -loffice_to_pdf_c
 
 $(SAMPNAME).o: $(SRC)/$(SAMPNAME).cpp

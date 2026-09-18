@@ -135,6 +135,15 @@ endif
 
 BUILD_ONLY_SAMPLES = $(SAMPLES)
 
+# Office-to-PDF SDK ships for Windows x86_64, Linux x86_64/ARM, and macOS ARM.
+# On the supported Unix variants (exclude mac-x86-64/aix/solaris) build the
+# ConvertWordToPDF sample but do not run it: it self-initializes the SDK and its
+# runtime shared-library search is environment-specific, so a clean build is the
+# CI signal.
+ifeq ($(findstring mac-x86-64,$(OS))$(findstring aix,$(OS))$(findstring solaris,$(OS)),)
+    BUILD_ONLY_SAMPLES += DocumentConversion/ConvertWordToPDF
+endif
+
 ifneq ($(findstring mac,$(OS)), )
     BUILD_ONLY_SAMPLES += Printing/PDFPrintDefault
     BUILD_ONLY_SAMPLES += Printing/PDFPrintGUI

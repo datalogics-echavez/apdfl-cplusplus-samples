@@ -36,11 +36,15 @@ class Pdfl18installerConan(ConanFile):
                (os_ == "Macos"   and arch == "armv8")
 
     def _officetopdf_supported(self):
-        # office-to-pdf-sdk currently publishes only a Windows x86_64 nightly
-        # binary, so gate the dependency (and the ConvertWordToPDF sample that
-        # uses it) to that platform. Widen this as the SDK ships more platforms.
-        return str(self.settings.os) == "Windows" and \
-               str(self.settings.arch) == "x86_64"
+        # office-to-pdf-sdk is published for Windows x86_64, Linux (x86_64 +
+        # ARM) and macOS ARM. Gate the dependency (and the ConvertWordToPDF
+        # sample that uses it) to those platforms so bootstrap never fails with
+        # "no compatible configuration" elsewhere.
+        os_ = str(self.settings.os)
+        arch = str(self.settings.arch)
+        return (os_ == "Windows" and arch == "x86_64") or \
+               (os_ == "Linux"   and arch in ("x86_64", "armv8")) or \
+               (os_ == "Macos"   and arch == "armv8")
 
     def _ocr_supported(self):
         # Mirrors ocr_unsupported_platforms in the APDFL tree: the
@@ -67,9 +71,11 @@ class Pdfl18installerConan(ConanFile):
         if self._webtopdf_supported():
             self.requires(self._requirements['webtopdf'])
         if self._officetopdf_supported():
-            # The ConvertWordToPDF sample links the Office-to-PDF SDK static
-            # library; it resolves the SDK's curator (Modern C++ interface)
-            # symbols at its own final link, so require curator directly too.
+            # The ConvertWordToPDF sample links the Office-to-PDF SDK's shared
+            # C library (office_to_pdf_c). That library loads the SDK's C++
+            # library, which in turn loads curator (the datalogics_interface
+            # Modern C++ interface) at run time, so require curator directly to
+            # stage its runtime library beside the sample -- it is not linked.
             self.requires(self._requirements['office-to-pdf-sdk'])
             self.requires(self._requirements['curator'])
         self.requires(self._requirements['installer-resources'])
@@ -156,9 +162,11 @@ class Pdfl18installerConan(ConanFile):
 
     def copy_officetopdf(self, destination):
         # The office-to-pdf-sdk package ships its public headers under
-        # include/office_to_pdf/ and a STATIC library (office_to_pdf_sdk).
-        # ConvertWordToPDF includes them as <office_to_pdf/converter_c.h>, so
-        # preserve the office_to_pdf/ subdirectory in the samples' include tree.
+        # include/office_to_pdf/ and two SHARED libraries: office_to_pdf_c (the
+        # plain-C ABI, converter_c.h) and office_to_pdf_sdk (the Modern C++ API
+        # it imports). ConvertWordToPDF includes <office_to_pdf/converter_c.h>,
+        # so preserve the office_to_pdf/ subdirectory in the samples' include
+        # tree.
         sdk_pkg = self.dependencies["office-to-pdf-sdk"]
         sdk_inc = os.path.join(sdk_pkg.package_folder, "include", "office_to_pdf")
         copy(self, "*.h", src=sdk_inc,
@@ -166,18 +174,26 @@ class Pdfl18installerConan(ConanFile):
         copy(self, "*.hpp", src=sdk_inc,
              dst="CPlusPlus/Include/Headers/office_to_pdf", keep_path=False)
 
-        # office_to_pdf_sdk is a static library: the consumer resolves its
-        # APDFL, curator, zlib and expat symbols at its own final link, so the
-        # static archive plus those import libraries all have to be staged next
-        # to the sample. (APDFL/DL210PDFL is already staged by copy_apdfl;
-        # gdiplus/ole32 are Windows system libraries from the toolchain.)
-        copy(self, "*office_to_pdf_sdk*", src=sdk_pkg.cpp_info.libdirs[0],
-             dst=destination, keep_path=False)
+        # The sample links only office_to_pdf_c (its import library on Windows,
+        # the shared object on Unix), but at run time office_to_pdf_c loads
+        # office_to_pdf_sdk, so stage both. Copy from every lib/bin directory
+        # the package (and its components) exposes so the per-platform spelling
+        # is present -- .lib + .dll on Windows, .so on Unix. Their transitive
+        # dependencies (APDFL, curator) resolve inside the shared libraries; the
+        # sample links none of them. (APDFL/DL210PDFL is staged by copy_apdfl.)
+        srcdirs = set(sdk_pkg.cpp_info.libdirs) | set(sdk_pkg.cpp_info.bindirs)
+        for comp in sdk_pkg.cpp_info.components.values():
+            srcdirs |= set(comp.libdirs) | set(comp.bindirs)
+        for srcdir in srcdirs:
+            for pattern in ("*office_to_pdf_c.*", "*office_to_pdf_sdk.*"):
+                copy(self, pattern, src=srcdir, dst=destination,
+                     keep_path=False)
 
-        # curator is the Modern C++ interface (datalogics_interface_api), a
-        # SHARED library. Stage the runtime DLL and its import library on
-        # Windows (both the Release 'api' and Debug 'apid' spellings), or the
-        # shared object on Unix.
+        # curator (datalogics_interface_api) is the Modern C++ interface that
+        # office_to_pdf_sdk loads at run time. The sample does not link it, so
+        # only its runtime library needs to sit beside the SDK's -- the DLL on
+        # Windows (Release 'api' and Debug 'apid' spellings), the shared object
+        # on Unix.
         curator_pkg = self.dependencies["curator"]
         curator_lib = curator_pkg.cpp_info.components['api'].libdirs[0] \
             if 'api' in curator_pkg.cpp_info.components \
@@ -187,22 +203,9 @@ class Pdfl18installerConan(ConanFile):
         if self.settings.os == "Windows":
             copy(self, "datalogics_interface_api*.dll", src=curator_bin,
                  dst=destination, keep_path=False)
-            copy(self, "datalogics_interface_api*.lib", src=curator_lib,
-                 dst=destination, keep_path=False)
         else:
             copy(self, "libdatalogics_interface_api*", src=curator_lib,
                  dst=destination, keep_path=False)
-
-        # zlib + expat are visible dependencies of office-to-pdf-sdk (the .docx
-        # ZIP container and WordprocessingML readers); their static libraries
-        # must be on the sample's link line. Copy every library the packages
-        # expose so the exact per-platform spelling is present.
-        for dep_name in ("zlib", "expat"):
-            dep_pkg = self.dependencies[dep_name]
-            for libdir in dep_pkg.cpp_info.libdirs:
-                copy(self, "*.lib", src=libdir, dst=destination, keep_path=False)
-                copy(self, "*.a", src=libdir, dst=destination, keep_path=False)
-                copy(self, "*.so*", src=libdir, dst=destination, keep_path=False)
 
     def _imports(self):
         pdfl_pkg_inc = os.path.join(self.dependencies["adobe_pdf_library"].package_folder, 'include')

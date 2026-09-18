@@ -2,19 +2,13 @@
 //
 // ConvertWordToPDF
 //
-// Demonstrates the Datalogics Office-to-PDF SDK's plain-C public interface
+// Demonstrates the Datalogics Office-to-PDF SDK's plain-C interface
 // (office_to_pdf/converter_c.h): convert a Microsoft Word .docx document to
 // PDF, both from a file on disk and from a document held in memory.
 //
-// Unlike the other samples in this repository, ConvertWordToPDF does NOT create
-// an APDFLib of its own. The Office-to-PDF SDK initializes the Adobe PDF Library
-// itself, on demand, for the duration of each conversion; holding a second
-// library open on the calling thread would double-initialize APDFL. Everything
-// the sample needs is reached through the C ABI declared in converter_c.h.
-//
-// The SDK ships as a static library, so this translation unit is compiled with
-// O2PDF_STATIC defined (see the .vcxproj / Makefile). Without it converter_c.h
-// would declare the entry points __declspec(dllimport) and the link would fail.
+// The SDK initializes the Adobe PDF Library itself for the duration of each
+// conversion, so -- unlike the other samples here -- this one creates no
+// APDFLib of its own and includes only the C ABI header.
 //
 // Usage:
 //   ConvertWordToPDF [input.docx] [output.pdf]
